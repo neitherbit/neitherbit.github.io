@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Grade — UFG</title>
+<style>
+  :root{
+    --paper:#f6f3ed;
+    --ink:#1f2421;
+    --ink-soft:#5b6058;
+    --line:#d8d2c4;
+    --accent:#2f5d50;
+    --accent-soft:#e4e9df;
+    --danger:#a4433a;
+    --ok:#2f6d4f;
+    --card:#ffffff;
+    --meal:#efe9dd;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  header h1{ margin:0 0 4px; font-size:1.5rem; letter-spacing:-0.01em; }
+  header p{ margin:0; color:var(--ink-soft); font-size:0.9rem; }
+  header code{
+    background:var(--accent-soft); padding:1px 5px; border-radius:4px;
+    font-size:0.85em; color:var(--accent);
+  }
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 340px;
+    gap:24px;
+    padding:24px 32px 48px;
+    align-items:start;
+  }
+  @media (max-width: 960px){ .layout{ grid-template-columns: 1fr; } }
+
+  /* ---- Grade ---- */
+  .grid-wrap{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow-x:auto;
+    padding:12px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 70px repeat(6, minmax(92px, 1fr));
+    min-width:720px;
+    position:relative;
+  }
+  .day-head{
+    grid-row:1;
+    font-size:0.8rem; font-weight:600;
+    text-align:center;
+    padding:8px 4px;
+    border-bottom:2px solid var(--ink);
+    position:sticky; top:0; background:var(--card); z-index:3;
+  }
+  .corner{
+    grid-row:1; grid-column:1;
+    border-bottom:2px solid var(--ink);
+    position:sticky; top:0; left:0; background:var(--card); z-index:4;
+  }
+  .time-label{
+    grid-column:1;
+    font-size:0.68rem; color:var(--ink-soft);
+    text-align:right; padding:4px 6px 0 4px;
+    position:sticky; left:0; background:var(--card);
+    border-bottom:1px solid var(--line);
+    line-height:1.2;
+  }
+  .time-label b{ color:var(--ink); font-size:0.74rem; }
+  .cell{
+    border-bottom:1px solid var(--line);
+    border-left:1px solid var(--line);
+  }
+  .sep{
+    grid-column:1 / -1;
+    background:var(--meal);
+    color:var(--ink-soft);
+    font-size:0.68rem; font-weight:600; letter-spacing:0.04em;
+    text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+
+  /* ---- Blocos ---- */
+  .block{
+    position:relative;
+    margin:2px 3px;
+    border-radius:6px;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(0,0,0,0.14);
+    font-size:0.72rem;
+    color:#fff;
+    z-index:2;
+  }
+  .block .fill{ position:absolute; inset:0; }
+  .block .label{
+    position:relative; z-index:2;
+    padding:4px 6px;
+    font-weight:600; line-height:1.15;
+    text-shadow:0 1px 2px rgba(0,0,0,0.4);
+    word-break:break-word;
+  }
+  .block .label small{ font-weight:500; opacity:0.92; font-size:0.9em; }
+  .block .label .prof{ font-weight:500; opacity:0.9; font-size:0.82em; font-style:italic; }
+  .block.split .label{ padding:3px 5px; font-size:0.66rem; }
+  .block .label.top-tri{ position:absolute; top:2px; left:5px; right:5px; }
+  .block .label.bottom-tri{ position:absolute; bottom:2px; right:5px; left:5px; text-align:right; }
+
+  /* ---- Painel ---- */
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+  }
+  .panel h2{ margin:0 0 14px; font-size:1rem; }
+  form{
+    display:flex; flex-direction:column; gap:12px;
+    margin-bottom:20px; padding-bottom:18px;
+    border-bottom:1px dashed var(--line);
+  }
+  label{
+    font-size:0.75rem; color:var(--ink-soft); font-weight:600;
+    display:block; margin-bottom:4px;
+  }
+  input[type=text]{
+    width:100%; padding:8px 9px;
+    border:1px solid var(--line); border-radius:6px;
+    font-size:0.9rem; background:#fdfcfa; color:var(--ink);
+  }
+  input#codigo{ font-family:'Consolas', ui-monospace, monospace; letter-spacing:0.06em; text-transform:uppercase; }
+  input:focus{ outline:2px solid var(--accent-soft); border-color:var(--accent); }
+  .code-row{ display:grid; grid-template-columns:1fr 46px; gap:8px; align-items:end; }
+  input[type=color]{
+    width:100%; height:38px;
+    border:1px solid var(--line); border-radius:6px;
+    padding:2px; background:none; cursor:pointer;
+  }
+  .feedback{ font-size:0.78rem; line-height:1.35; min-height:1.1em; }
+  .feedback.err{ color:var(--danger); }
+  .feedback.ok{ color:var(--ok); }
+  .feedback.ok b{ color:var(--ink); }
+  button{
+    cursor:pointer; border:none; border-radius:6px;
+    font-size:0.88rem; font-weight:600; padding:10px 12px;
+  }
+  .btn-add{ background:var(--accent); color:#fff; }
+  .btn-add:hover:not(:disabled){ background:#274d43; }
+  .btn-add:disabled{ opacity:0.45; cursor:not-allowed; }
+  .btn-cancel{
+    background:none; color:var(--ink-soft);
+    border:1px solid var(--line); padding:6px;
+    font-size:0.78rem; margin-top:-4px;
+  }
+  .btn-cancel:hover{ background:var(--accent-soft); color:var(--ink); }
+
+  .disc-item{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 6px; border-radius:6px;
+  }
+  .disc-item:hover{ background:var(--accent-soft); }
+  .disc-item.hidden-item{ opacity:0.45; }
+  .swatch{ width:14px; height:14px; border-radius:4px; flex-shrink:0; }
+  .disc-info{ flex:1; min-width:0; }
+  .disc-name{ font-size:0.86rem; font-weight:600; }
+  .disc-time{ font-size:0.72rem; color:var(--ink-soft); }
+  .disc-code{
+    font-family:'Consolas', ui-monospace, monospace;
+    font-size:0.72rem; color:var(--accent); font-weight:600;
+  }
+  .disc-actions{ display:flex; gap:4px; }
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--ink-soft);
+    width:26px; height:26px; border-radius:5px; padding:0;
+    font-size:0.8rem; line-height:1;
+  }
+  .icon-btn:hover{ background:var(--accent-soft); color:var(--ink); }
+  .icon-btn.del:hover{ background:#f6e4e2; color:var(--danger); border-color:var(--danger); }
+  .empty-msg{
+    color:var(--ink-soft); font-size:0.82rem; text-align:center; padding:20px 4px;
+  }
+  .help{
+    font-size:0.72rem; color:var(--ink-soft);
+    margin-top:14px; line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Simulador de Grade — UFG</h1>
+  <p>Digite o código de horário (ex: <code>24M45</code> = Seg e Qua, 10:00–11:40). Conflitos dividem o quadrado.</p>
+</header>
+
+<div class="layout">
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="panel">
+    <h2 id="form-title">Adicionar disciplina</h2>
+    <form id="form" autocomplete="off">
+      <div>
+        <label for="nome">Nome da disciplina</label>
+        <input type="text" id="nome" placeholder="ex: Estrutura de Dados" required>
+      </div>
+      <div>
+        <label for="professor">Professor <span style="font-weight:400">(opcional)</span></label>
+        <input type="text" id="professor" placeholder="ex: Prof. Ana">
+      </div>
+      <div>
+        <label for="codigo">Código de horário</label>
+        <div class="code-row">
+          <input type="text" id="codigo" placeholder="ex: 24M45" required>
+          <input type="color" id="cor" title="Cor da disciplina">
+        </div>
+      </div>
+      <div class="feedback" id="feedback"></div>
+      <button type="submit" class="btn-add" id="btn-add" disabled>Adicionar à grade</button>
+      <button type="button" class="btn-cancel" id="btn-cancel" style="display:none;">Cancelar edição</button>
+    </form>
+
+    <h2>Disciplinas</h2>
+    <div id="lista"></div>
+
+    <div class="help">
+      <strong>Como ler o código:</strong> dias (2=Seg … 7=Sáb) + turno (M/T/N) + horários.<br>
+      Manhã e tarde: 1–6 · Noite: 1–5. Horários seguidos viram um bloco só.
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============ Constantes ============ */
+const DIA_FULL = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado']; // índice 0..5 = dígitos 2..7
+const DIA_ABBR = ['Seg','Ter','Qua','Qui','Sex','Sáb'];
+const TURNO_NOME = { M:'Manhã', T:'Tarde', N:'Noite' };
+
+// tabela oficial: [inicio, fim] por slot de cada turno
+const TABELA = {
+  M: {1:['07:10','08:00'],2:['08:00','08:50'],3:['08:50','09:40'],4:['10:00','10:50'],5:['10:50','11:40'],6:['11:40','12:30']},
+  T: {1:['13:10','14:00'],2:['14:00','14:50'],3:['14:50','15:40'],4:['16:00','16:50'],5:['16:50','17:40'],6:['17:40','18:30']},
+  N: {1:['18:05','18:50'],2:['18:50','19:35'],3:['19:35','20:20'],4:['20:30','21:15'],5:['21:15','22:00']},
+};
+const MAX_SLOT = { M:6, T:6, N:5 };
+const TURNOS = ['M','T','N'];
+
+const PALETA = ['#2f5d50','#a4433a','#3b5b8c','#7a5c3e','#5a7d3c','#7d4a6e',
+                '#b07a2e','#3d7d7a','#8c4a5b','#4a5d8c','#6d6b3a','#a15c3a'];
+
+const STORAGE_KEY = 'grade_ufg_v2';
+
+/* ============ Estado ============ */
+let disciplinas = load();
+let editandoId = null;
+let slotRow = {}; // "M3" -> número da linha no grid
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e){ return []; }
+}
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(disciplinas)); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function hexRgb(h){
+  h = h.replace('#','');
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function distanciaCor(a,b){
+  const x = hexRgb(a), y = hexRgb(b);
+  return Math.hypot(x[0]-y[0], x[1]-y[1], x[2]-y[2]);
+}
+function corAleatoria(){
+  const usadas = disciplinas.map(d => d.cor);
+  // 1ª opção: cores da paleta não usadas E longe (distância > 70) de todas as usadas
+  let cands = PALETA.filter(c => usadas.every(u => distanciaCor(c,u) > 70));
+  // 2ª opção: pelo menos não repetidas
+  if(cands.length === 0) cands = PALETA.filter(c => !usadas.includes(c));
+  // 3ª opção: acabou a paleta, libera tudo
+  if(cands.length === 0) cands = PALETA;
+  return cands[Math.floor(Math.random()*cands.length)];
+}
+
+/* ============ Parsing + validação ============ */
+function parseCodigo(raw){
+  const code = (raw || '').trim().toUpperCase();
+  if(!code) return { ok:false, erro:'Digite um código de horário.' };
+
+  const letras = code.match(/[A-Z]/g) || [];
+  if(letras.length === 0)
+    return { ok:false, erro:'Faltou a letra do turno (M, T ou N).' };
+  if(letras.length > 1)
+    return { ok:false, erro:'Use apenas uma letra de turno (M, T ou N).' };
+
+  const turno = letras[0];
+  if(!TURNOS.includes(turno))
+    return { ok:false, erro:`Turno inválido: "${turno}". Use M, T ou N.` };
+
+  const pos = code.indexOf(turno);
+  const diasStr = code.slice(0, pos);
+  const slotsStr = code.slice(pos + 1);
+
+  if(diasStr === '')
+    return { ok:false, erro:'Faltou o(s) dia(s) antes do turno.' };
+  if(slotsStr === '')
+    return { ok:false, erro:'Faltou o(s) horário(s) depois do turno.' };
+
+  // dias
+  const dias = [];
+  for(const ch of diasStr){
+    if(ch < '2' || ch > '7')
+      return { ok:false, erro:`Dia inválido: "${ch}". Use dígitos de 2 (segunda) a 7 (sábado).` };
+    if(dias.includes(Number(ch)))
+      return { ok:false, erro:`Dia repetido: "${ch}".` };
+    dias.push(Number(ch));
+  }
+
+  // slots
+  const max = MAX_SLOT[turno];
+  const slots = [];
+  for(const ch of slotsStr){
+    const n = Number(ch);
+    if(ch < '1' || n > max)
+      return { ok:false, erro:`Horário "${ch}" não existe no turno ${TURNO_NOME[turno]} (use de 1 a ${max}).` };
+    if(!slots.includes(n)) slots.push(n);
+  }
+
+  dias.sort((a,b)=>a-b);
+  slots.sort((a,b)=>a-b);
+  return { ok:true, dias, turno, slots };
+}
+
+/* Agrupa slots em sequências de números consecutivos: [4,5]->[[4,5]], [1,3]->[[1],[3]] */
+function gruposConsecutivos(slots){
+  const grupos = [];
+  let atual = [slots[0]];
+  for(let i=1; i<slots.length; i++){
+    if(slots[i] === slots[i-1] + 1) atual.push(slots[i]);
+    else { grupos.push(atual); atual = [slots[i]]; }
+  }
+  grupos.push(atual);
+  return grupos;
+}
+
+/* Expande {dias, turno, slots} em blocos [{diaIdx, turno, slotIni, slotFim, inicio, fim}] */
+function expandir(parsed){
+  const { dias, turno, slots } = parsed;
+  const grupos = gruposConsecutivos(slots);
+  const blocos = [];
+  for(const dia of dias){
+    for(const g of grupos){
+      const slotIni = g[0], slotFim = g[g.length-1];
+      blocos.push({
+        diaIdx: dia - 2,
+        turno, slotIni, slotFim,
+        inicio: TABELA[turno][slotIni][0],
+        fim: TABELA[turno][slotFim][1],
+      });
+    }
+  }
+  return blocos;
+}
+
+/* Descrição por extenso: "Segunda e Quarta, 10:00–11:40" */
+function nomesDias(dias){
+  const nomes = dias.map(d => DIA_FULL[d-2]);
+  if(nomes.length === 1) return nomes[0];
+  return nomes.slice(0,-1).join(', ') + ' e ' + nomes[nomes.length-1];
+}
+function descrever(parsed){
+  const grupos = gruposConsecutivos(parsed.slots);
+  const faixas = grupos.map(g => {
+    const ini = TABELA[parsed.turno][g[0]][0];
+    const fim = TABELA[parsed.turno][g[g.length-1]][1];
+    return `${ini}–${fim}`;
+  });
+  return `${nomesDias(parsed.dias)}, ${faixas.join(' e ')}`;
+}
+
+/* ============ Skeleton da grade ============ */
+function buildGridSkeleton(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  slotRow = {};
+
+  // define a ordem das linhas
+  const rowDefs = [{ type:'header' }];
+  TURNOS.forEach(turno => {
+    for(let s=1; s<=MAX_SLOT[turno]; s++) rowDefs.push({ type:'slot', turno, slot:s });
+    if(turno === 'M') rowDefs.push({ type:'sep', label:'Intervalo — almoço' });
+    if(turno === 'T') rowDefs.push({ type:'sep', label:'Intervalo — janta' });
+  });
+
+  const rowSizes = rowDefs.map(r =>
+    r.type === 'header' ? '34px' : r.type === 'sep' ? '24px' : '46px'
+  );
+  grid.style.gridTemplateRows = rowSizes.join(' ');
+
+  // corner + cabeçalho de dias
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  grid.appendChild(corner);
+  DIA_ABBR.forEach((d, i) => {
+    const h = document.createElement('div');
+    h.className = 'day-head';
+    h.style.gridColumn = i + 2;
+    h.textContent = d;
+    grid.appendChild(h);
+  });
+
+  rowDefs.forEach((r, idx) => {
+    const row = idx + 1;
+    if(r.type === 'slot'){
+      slotRow[`${r.turno}${r.slot}`] = row;
+
+      const label = document.createElement('div');
+      label.className = 'time-label';
+      label.style.gridRow = row;
+      const [ini, fim] = TABELA[r.turno][r.slot];
+      label.innerHTML = `<b>${ini}</b><br>${fim}`;
+      grid.appendChild(label);
+
+      for(let c=0; c<6; c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.style.gridRow = row;
+        cell.style.gridColumn = c + 2;
+        grid.appendChild(cell);
+      }
+    } else if(r.type === 'sep'){
+      const sep = document.createElement('div');
+      sep.className = 'sep';
+      sep.style.gridRow = row;
+      sep.textContent = r.label;
+      grid.appendChild(sep);
+    }
+  });
+}
+
+/* ============ Render dos blocos ============ */
+function blocosDaGrade(){
+  // achata todos os blocos das disciplinas visíveis, guardando origem
+  const out = [];
+  disciplinas.filter(d => !d.oculta).forEach(d => {
+    (d.blocos || []).forEach(b => out.push({ ...b, id:d.id, nome:d.nome, professor:d.professor, cor:d.cor }));
+  });
+  return out;
+}
+function sobrepoe(a, b){
+  return a.slotIni <= b.slotFim && b.slotIni <= a.slotFim; // já filtrado por dia+turno
+}
+function groupOverlaps(items){
+  const groups = [], visited = new Set();
+  items.forEach((item, i) => {
+    if(visited.has(i)) return;
+    const group = [item]; visited.add(i);
+    let changed = true;
+    while(changed){
+      changed = false;
+      items.forEach((other, j) => {
+        if(visited.has(j)) return;
+        if(item.turno === other.turno && group.some(g => sobrepoe(g, other))){
+          group.push(other); visited.add(j); changed = true;
+        }
+      });
+    }
+    groups.push(group);
+  });
+  return groups;
+}
+
+function renderBlocks(){
+  document.querySelectorAll('.block-wrap').forEach(el => el.remove());
+  const grid = document.getElementById('grid');
+  const todos = blocosDaGrade();
+
+  for(let dia=0; dia<6; dia++){
+    const doDia = todos.filter(b => b.diaIdx === dia);
+    const groups = groupOverlaps(doDia);
+
+    groups.forEach(group => {
+      group.forEach((item, idx) => {
+        const rowStart = slotRow[`${item.turno}${item.slotIni}`];
+        const rowEnd = slotRow[`${item.turno}${item.slotFim}`];
+
+        const wrap = document.createElement('div');
+        wrap.className = 'block-wrap';
+        wrap.style.gridColumn = dia + 2;
+        wrap.style.gridRow = `${rowStart} / ${rowEnd + 1}`;
+        wrap.style.position = 'relative';
+        wrap.style.zIndex = '2';
+
+        const block = document.createElement('div');
+        block.className = 'block';
+        block.style.height = '100%';
+
+        const legenda = `${item.inicio}–${item.fim}`;
+
+        if(group.length === 1){
+          block.innerHTML =
+            `<div class="fill" style="background:${item.cor}"></div>` +
+            `<div class="label">${escapeHtml(item.nome)}${profLine(item)}<br><small>${legenda}</small></div>`;
+        } else if(group.length === 2){
+          block.classList.add('split');
+          const [a,b] = group;
+          block.innerHTML =
+            `<div class="fill" style="background:${a.cor};clip-path:polygon(0 0,100% 0,0 100%)"></div>` +
+            `<div class="fill" style="background:${b.cor};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>` +
+            `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}</div>` +
+            `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}</div>`;
+        } else {
+          block.classList.add('split');
+          block.style.display = 'flex';
+          block.innerHTML = group.map(g =>
+            `<div style="flex:1;position:relative;background:${g.cor};overflow:hidden">` +
+            `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}</div></div>`
+          ).join('');
+        }
+
+        wrap.appendChild(block);
+        grid.appendChild(wrap);
+      });
+    });
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function profLine(item){
+  return item.professor ? `<br><span class="prof">${escapeHtml(item.professor)}</span>` : '';
+}
+
+/* ============ Lista lateral ============ */
+function renderLista(){
+  const lista = document.getElementById('lista');
+  lista.innerHTML = '';
+  if(disciplinas.length === 0){
+    lista.innerHTML = '<div class="empty-msg">Nenhuma disciplina adicionada ainda.</div>';
+    return;
+  }
+  disciplinas.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'disc-item' + (d.oculta ? ' hidden-item' : '');
+
+    const swatch = document.createElement('div');
+    swatch.className = 'swatch';
+    swatch.style.background = d.cor;
+
+    const info = document.createElement('div');
+    info.className = 'disc-info';
+    info.innerHTML =
+      `<div class="disc-name">${escapeHtml(d.nome)}</div>` +
+      (d.professor ? `<div class="disc-time">${escapeHtml(d.professor)}</div>` : '') +
+      `<div class="disc-code">${escapeHtml(d.codigo_horario)}</div>` +
+      `<div class="disc-time">${escapeHtml(d.descricao)}</div>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'disc-actions';
+
+    const editBtn = mkIconBtn('✎', 'Editar');
+    editBtn.onclick = () => iniciarEdicao(d.id);
+
+    const toggleBtn = mkIconBtn(d.oculta ? '👁' : '🚫', d.oculta ? 'Mostrar' : 'Ocultar');
+    toggleBtn.onclick = () => { d.oculta = !d.oculta; save(); renderAll(); };
+
+    const delBtn = mkIconBtn('✕', 'Excluir');
+    delBtn.classList.add('del');
+    delBtn.onclick = () => {
+      disciplinas = disciplinas.filter(x => x.id !== d.id);
+      if(editandoId === d.id) cancelarEdicao();
+      save(); renderAll();
+    };
+
+    actions.append(editBtn, toggleBtn, delBtn);
+    item.append(swatch, info, actions);
+    lista.appendChild(item);
+  });
+}
+function mkIconBtn(txt, title){
+  const b = document.createElement('button');
+  b.className = 'icon-btn'; b.type = 'button';
+  b.textContent = txt; b.title = title;
+  return b;
+}
+
+function renderAll(){ renderBlocks(); renderLista(); }
+
+/* ============ Formulário ============ */
+const $nome = document.getElementById('nome');
+const $professor = document.getElementById('professor');
+const $codigo = document.getElementById('codigo');
+const $cor = document.getElementById('cor');
+const $feedback = document.getElementById('feedback');
+const $btnAdd = document.getElementById('btn-add');
+const $btnCancel = document.getElementById('btn-cancel');
+const $formTitle = document.getElementById('form-title');
+
+function atualizarFeedback(){
+  const parsed = parseCodigo($codigo.value);
+  const nomeOk = $nome.value.trim() !== '';
+  if($codigo.value.trim() === ''){
+    $feedback.className = 'feedback';
+    $feedback.textContent = '';
+  } else if(parsed.ok){
+    $feedback.className = 'feedback ok';
+    $feedback.innerHTML = '✓ <b>' + escapeHtml(descrever(parsed)) + '</b>';
+  } else {
+    $feedback.className = 'feedback err';
+    $feedback.textContent = '✕ ' + parsed.erro;
+  }
+  $btnAdd.disabled = !(parsed.ok && nomeOk);
+}
+
+$nome.addEventListener('input', atualizarFeedback);
+$codigo.addEventListener('input', atualizarFeedback);
+
+document.getElementById('form').addEventListener('submit', e => {
+  e.preventDefault();
+  const nome = $nome.value.trim();
+  const parsed = parseCodigo($codigo.value);
+  if(!nome || !parsed.ok) return;
+
+  const dados = {
+    nome,
+    professor: $professor.value.trim(),
+    cor: $cor.value,
+    codigo_horario: $codigo.value.trim().toUpperCase(),
+    descricao: descrever(parsed),
+    blocos: expandir(parsed),
+    oculta: false,
+  };
+
+  if(editandoId){
+    const d = disciplinas.find(x => x.id === editandoId);
+    if(d) Object.assign(d, dados);
+    cancelarEdicao();
+  } else {
+    disciplinas.push({ id: uid(), ...dados });
+  }
+
+  save(); renderAll(); resetForm();
+});
+
+function resetForm(){
+  $nome.value = '';
+  $professor.value = '';
+  $codigo.value = '';
+  $cor.value = corAleatoria();
+  atualizarFeedback();
+  $nome.focus();
+}
+
+function iniciarEdicao(id){
+  const d = disciplinas.find(x => x.id === id);
+  if(!d) return;
+  editandoId = id;
+  $nome.value = d.nome;
+  $professor.value = d.professor || '';
+  $codigo.value = d.codigo_horario;
+  $cor.value = d.cor;
+  $formTitle.textContent = 'Editar disciplina';
+  $btnAdd.textContent = 'Salvar alterações';
+  $btnCancel.style.display = 'block';
+  atualizarFeedback();
+  $nome.focus();
+}
+function cancelarEdicao(){
+  editandoId = null;
+  $formTitle.textContent = 'Adicionar disciplina';
+  $btnAdd.textContent = 'Adicionar à grade';
+  $btnCancel.style.display = 'none';
+}
+$btnCancel.onclick = () => { cancelarEdicao(); resetForm(); };
+
+/* ============ Init ============ */
+buildGridSkeleton();
+renderAll();
+$cor.value = corAleatoria();
+atualizarFeedback();
+</script>
+
+</body>
+</html>

@@ -510,80 +510,76 @@ function blocosDaGrade(){
   });
   return out;
 }
-function sobrepoe(a, b){
-  return a.slotIni <= b.slotFim && b.slotIni <= a.slotFim; // já filtrado por dia+turno
-}
-function groupOverlaps(items){
-  const groups = [], visited = new Set();
-  items.forEach((item, i) => {
-    if(visited.has(i)) return;
-    const group = [item]; visited.add(i);
-    let changed = true;
-    while(changed){
-      changed = false;
-      items.forEach((other, j) => {
-        if(visited.has(j)) return;
-        if(item.turno === other.turno && group.some(g => sobrepoe(g, other))){
-          group.push(other); visited.add(j); changed = true;
-        }
-      });
-    }
-    groups.push(group);
-  });
-  return groups;
-}
 
 function renderBlocks(){
   document.querySelectorAll('.block-wrap').forEach(el => el.remove());
   const grid = document.getElementById('grid');
-  const todos = blocosDaGrade();
+  const todos = blocosDaGrade().map(b => ({
+    ...b,
+    rowStart: slotRow[`${b.turno}${b.slotIni}`],
+    rowEnd: slotRow[`${b.turno}${b.slotFim}`],
+  }));
 
   for(let dia=0; dia<6; dia++){
     const doDia = todos.filter(b => b.diaIdx === dia);
-    const groups = groupOverlaps(doDia);
+    if(doDia.length === 0) continue;
 
-    groups.forEach(group => {
-      group.forEach((item, idx) => {
-        const rowStart = slotRow[`${item.turno}${item.slotIni}`];
-        const rowEnd = slotRow[`${item.turno}${item.slotFim}`];
+    const minR = Math.min(...doDia.map(b => b.rowStart));
+    const maxR = Math.max(...doDia.map(b => b.rowEnd));
+    const ocupantesEm = r => doDia.filter(b => b.rowStart <= r && r <= b.rowEnd);
 
-        const wrap = document.createElement('div');
-        wrap.className = 'block-wrap';
-        wrap.style.gridColumn = dia + 2;
-        wrap.style.gridRow = `${rowStart} / ${rowEnd + 1}`;
-        wrap.style.position = 'relative';
-        wrap.style.zIndex = '2';
+    // agrupa linhas consecutivas que têm EXATAMENTE o mesmo conjunto de disciplinas
+    const segmentos = [];
+    let curKey = null, curStart = minR, curOcc = [];
+    for(let r = minR; r <= maxR + 1; r++){
+      const occ = (r <= maxR) ? ocupantesEm(r) : [];
+      const key = occ.map(o => o.id).sort().join('|');
+      if(r === minR){ curKey = key; curStart = r; curOcc = occ; continue; }
+      if(key !== curKey){
+        if(curOcc.length > 0) segmentos.push({ start: curStart, end: r - 1, occ: curOcc });
+        curKey = key; curStart = r; curOcc = occ;
+      }
+    }
 
-        const block = document.createElement('div');
-        block.className = 'block';
-        block.style.height = '100%';
+    segmentos.forEach(seg => {
+      const occ = seg.occ;
 
-        const legenda = `${item.inicio}–${item.fim}`;
+      const wrap = document.createElement('div');
+      wrap.className = 'block-wrap';
+      wrap.style.gridColumn = dia + 2;
+      wrap.style.gridRow = `${seg.start} / ${seg.end + 1}`;
+      wrap.style.position = 'relative';
+      wrap.style.zIndex = '2';
 
-        if(group.length === 1){
-          block.innerHTML =
-            `<div class="fill" style="background:${item.cor}"></div>` +
-            `<div class="label">${escapeHtml(item.nome)}${profLine(item)}${obsLine(item)}<br><small>${legenda}</small></div>`;
-        } else if(group.length === 2){
-          block.classList.add('split');
-          const [a,b] = group;
-          block.innerHTML =
-            `<div class="fill" style="background:${a.cor};clip-path:polygon(0 0,100% 0,0 100%)"></div>` +
-            `<div class="fill" style="background:${b.cor};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>` +
-            `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}${obsLine(a)}</div>` +
-            `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}${obsLine(b)}</div>`;
-        } else {
-          block.classList.add('split');
-          block.style.display = 'flex';
-          block.innerHTML = group.map(g =>
-            `<div style="flex:1;position:relative;background:${g.cor};overflow:hidden">` +
-            `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}${obsLine(g)}</div></div>`
-          ).join('');
-        }
+      const block = document.createElement('div');
+      block.className = 'block';
+      block.style.height = '100%';
 
-        wrap.appendChild(block);
-        grid.appendChild(wrap);
-      });
+      if(occ.length === 1){
+        const item = occ[0];
+        block.innerHTML =
+          `<div class="fill" style="background:${item.cor}"></div>` +
+          `<div class="label">${escapeHtml(item.nome)}${profLine(item)}${obsLine(item)}` +
+          `<br><small>${item.inicio}–${item.fim}</small></div>`;
+      } else if(occ.length === 2){
+        block.classList.add('split');
+        const [a,b] = occ;
+        block.innerHTML =
+          `<div class="fill" style="background:${a.cor};clip-path:polygon(0 0,100% 0,0 100%)"></div>` +
+          `<div class="fill" style="background:${b.cor};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>` +
+          `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}${obsLine(a)}</div>` +
+          `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}${obsLine(b)}</div>`;
+      } else {
+        block.classList.add('split');
+        block.style.display = 'flex';
+        block.innerHTML = occ.map(g =>
+          `<div style="flex:1;position:relative;background:${g.cor};overflow:hidden">` +
+          `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}${obsLine(g)}</div></div>`
+        ).join('');
+      }
+
+      wrap.appendChild(block);
+      grid.appendChild(wrap);
     });
   }
 }

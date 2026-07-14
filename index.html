@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simulador de Grade — UFG</title>
+<script>
+  // aplica o tema o quanto antes, evitando "flash" de tema errado
+  (function(){
+    var salvo = localStorage.getItem('grade_ufg_tema');
+    var tema = salvo || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', tema);
+  })();
+</script>
 <style>
   :root{
     --paper:#f6f3ed;
@@ -11,13 +19,32 @@
     --ink-soft:#5b6058;
     --line:#d8d2c4;
     --accent:#2f5d50;
+    --accent-hover:#274d43;
     --accent-soft:#e4e9df;
     --danger:#a4433a;
+    --danger-soft:#f6e4e2;
     --ok:#2f6d4f;
     --card:#ffffff;
     --meal:#efe9dd;
+    --input-bg:#fdfcfa;
     font-size:16px;
   }
+  [data-theme="dark"]{
+    --paper:#16181a;
+    --ink:#e7e9e6;
+    --ink-soft:#9aa39c;
+    --line:#333a36;
+    --accent:#4f9d86;
+    --accent-hover:#5fae96;
+    --accent-soft:#26302c;
+    --danger:#e06b60;
+    --danger-soft:#3a2320;
+    --ok:#6bbf94;
+    --card:#22262a;
+    --meal:#2a2f2c;
+    --input-bg:#1b1f22;
+  }
+  html{ color-scheme:light dark; }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -32,6 +59,15 @@
   }
   header h1{ margin:0 0 4px; font-size:1.5rem; letter-spacing:-0.01em; }
   header p{ margin:0; color:var(--ink-soft); font-size:0.9rem; }
+  .header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+  .theme-toggle{
+    flex-shrink:0;
+    background:var(--card); color:var(--ink);
+    border:1px solid var(--line); border-radius:9px;
+    width:42px; height:42px; font-size:1.2rem; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .theme-toggle:hover{ background:var(--accent-soft); }
   header code{
     background:var(--accent-soft); padding:1px 5px; border-radius:4px;
     font-size:0.85em; color:var(--accent);
@@ -117,6 +153,7 @@
   }
   .block .label small{ font-weight:500; opacity:0.92; font-size:0.9em; }
   .block .label .prof{ font-weight:500; opacity:0.9; font-size:0.82em; font-style:italic; }
+  .block .label .obs{ font-weight:400; opacity:0.82; font-size:0.78em; }
   .block.split .label{ padding:3px 5px; font-size:0.66rem; }
   .block .label.top-tri{ position:absolute; top:2px; left:5px; right:5px; }
   .block .label.bottom-tri{ position:absolute; bottom:2px; right:5px; left:5px; text-align:right; }
@@ -141,7 +178,7 @@
   input[type=text]{
     width:100%; padding:8px 9px;
     border:1px solid var(--line); border-radius:6px;
-    font-size:0.9rem; background:#fdfcfa; color:var(--ink);
+    font-size:0.9rem; background:var(--input-bg); color:var(--ink);
   }
   input#codigo{ font-family:'Consolas', ui-monospace, monospace; letter-spacing:0.06em; text-transform:uppercase; }
   input:focus{ outline:2px solid var(--accent-soft); border-color:var(--accent); }
@@ -160,7 +197,7 @@
     font-size:0.88rem; font-weight:600; padding:10px 12px;
   }
   .btn-add{ background:var(--accent); color:#fff; }
-  .btn-add:hover:not(:disabled){ background:#274d43; }
+  .btn-add:hover:not(:disabled){ background:var(--accent-hover); }
   .btn-add:disabled{ opacity:0.45; cursor:not-allowed; }
   .btn-cancel{
     background:none; color:var(--ink-soft);
@@ -190,7 +227,7 @@
     font-size:0.8rem; line-height:1;
   }
   .icon-btn:hover{ background:var(--accent-soft); color:var(--ink); }
-  .icon-btn.del:hover{ background:#f6e4e2; color:var(--danger); border-color:var(--danger); }
+  .icon-btn.del:hover{ background:var(--danger-soft); color:var(--danger); border-color:var(--danger); }
   .empty-msg{
     color:var(--ink-soft); font-size:0.82rem; text-align:center; padding:20px 4px;
   }
@@ -203,8 +240,13 @@
 <body>
 
 <header>
-  <h1>Simulador de Grade — UFG</h1>
-  <p>Digite o código de horário (ex: <code>24M45</code> = Seg e Qua, 10:00–11:40). Conflitos dividem o quadrado.</p>
+  <div class="header-row">
+    <div>
+      <h1>Simulador de Grade — UFG</h1>
+      <p>Digite o código de horário (ex: <code>24M45</code> = Seg e Qua, 10:00–11:40). Conflitos dividem o quadrado.</p>
+    </div>
+    <button id="theme-toggle" class="theme-toggle" type="button" title="Alternar tema claro/escuro">🌙</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -223,6 +265,10 @@
       <div>
         <label for="professor">Professor <span style="font-weight:400">(opcional)</span></label>
         <input type="text" id="professor" placeholder="ex: Prof. Ana">
+      </div>
+      <div>
+        <label for="observacao">Observação <span style="font-weight:400">(opcional)</span></label>
+        <input type="text" id="observacao" placeholder="ex: sala 201 / turma B">
       </div>
       <div>
         <label for="codigo">Código de horário</label>
@@ -262,8 +308,9 @@ const TABELA = {
 const MAX_SLOT = { M:6, T:6, N:5 };
 const TURNOS = ['M','T','N'];
 
-const PALETA = ['#2f5d50','#a4433a','#3b5b8c','#7a5c3e','#5a7d3c','#7d4a6e',
-                '#b07a2e','#3d7d7a','#8c4a5b','#4a5d8c','#6d6b3a','#a15c3a'];
+// paleta viva (tons saturados, bom contraste com texto branco)
+const PALETA = ['#dc2626','#ea580c','#d97706','#16a34a','#059669','#0891b2',
+                '#2563eb','#4f46e5','#7c3aed','#c026d3','#db2777','#0d9488'];
 
 const STORAGE_KEY = 'grade_ufg_v2';
 
@@ -459,7 +506,7 @@ function blocosDaGrade(){
   // achata todos os blocos das disciplinas visíveis, guardando origem
   const out = [];
   disciplinas.filter(d => !d.oculta).forEach(d => {
-    (d.blocos || []).forEach(b => out.push({ ...b, id:d.id, nome:d.nome, professor:d.professor, cor:d.cor }));
+    (d.blocos || []).forEach(b => out.push({ ...b, id:d.id, nome:d.nome, professor:d.professor, observacao:d.observacao, cor:d.cor }));
   });
   return out;
 }
@@ -516,21 +563,21 @@ function renderBlocks(){
         if(group.length === 1){
           block.innerHTML =
             `<div class="fill" style="background:${item.cor}"></div>` +
-            `<div class="label">${escapeHtml(item.nome)}${profLine(item)}<br><small>${legenda}</small></div>`;
+            `<div class="label">${escapeHtml(item.nome)}${profLine(item)}${obsLine(item)}<br><small>${legenda}</small></div>`;
         } else if(group.length === 2){
           block.classList.add('split');
           const [a,b] = group;
           block.innerHTML =
             `<div class="fill" style="background:${a.cor};clip-path:polygon(0 0,100% 0,0 100%)"></div>` +
             `<div class="fill" style="background:${b.cor};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>` +
-            `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}</div>` +
-            `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}</div>`;
+            `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}${obsLine(a)}</div>` +
+            `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}${obsLine(b)}</div>`;
         } else {
           block.classList.add('split');
           block.style.display = 'flex';
           block.innerHTML = group.map(g =>
             `<div style="flex:1;position:relative;background:${g.cor};overflow:hidden">` +
-            `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}</div></div>`
+            `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}${obsLine(g)}</div></div>`
           ).join('');
         }
 
@@ -546,6 +593,9 @@ function escapeHtml(s){
 }
 function profLine(item){
   return item.professor ? `<br><span class="prof">${escapeHtml(item.professor)}</span>` : '';
+}
+function obsLine(item){
+  return item.observacao ? `<br><span class="obs">${escapeHtml(item.observacao)}</span>` : '';
 }
 
 /* ============ Lista lateral ============ */
@@ -569,6 +619,7 @@ function renderLista(){
     info.innerHTML =
       `<div class="disc-name">${escapeHtml(d.nome)}</div>` +
       (d.professor ? `<div class="disc-time">${escapeHtml(d.professor)}</div>` : '') +
+      (d.observacao ? `<div class="disc-time">${escapeHtml(d.observacao)}</div>` : '') +
       `<div class="disc-code">${escapeHtml(d.codigo_horario)}</div>` +
       `<div class="disc-time">${escapeHtml(d.descricao)}</div>`;
 
@@ -606,6 +657,7 @@ function renderAll(){ renderBlocks(); renderLista(); }
 /* ============ Formulário ============ */
 const $nome = document.getElementById('nome');
 const $professor = document.getElementById('professor');
+const $observacao = document.getElementById('observacao');
 const $codigo = document.getElementById('codigo');
 const $cor = document.getElementById('cor');
 const $feedback = document.getElementById('feedback');
@@ -641,6 +693,7 @@ document.getElementById('form').addEventListener('submit', e => {
   const dados = {
     nome,
     professor: $professor.value.trim(),
+    observacao: $observacao.value.trim(),
     cor: $cor.value,
     codigo_horario: $codigo.value.trim().toUpperCase(),
     descricao: descrever(parsed),
@@ -662,6 +715,7 @@ document.getElementById('form').addEventListener('submit', e => {
 function resetForm(){
   $nome.value = '';
   $professor.value = '';
+  $observacao.value = '';
   $codigo.value = '';
   $cor.value = corAleatoria();
   atualizarFeedback();
@@ -674,6 +728,7 @@ function iniciarEdicao(id){
   editandoId = id;
   $nome.value = d.nome;
   $professor.value = d.professor || '';
+  $observacao.value = d.observacao || '';
   $codigo.value = d.codigo_horario;
   $cor.value = d.cor;
   $formTitle.textContent = 'Editar disciplina';
@@ -689,6 +744,31 @@ function cancelarEdicao(){
   $btnCancel.style.display = 'none';
 }
 $btnCancel.onclick = () => { cancelarEdicao(); resetForm(); };
+
+/* ============ Tema (dark mode) ============ */
+const THEME_KEY = 'grade_ufg_tema';
+const $themeToggle = document.getElementById('theme-toggle');
+
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-theme', tema);
+  $themeToggle.textContent = tema === 'dark' ? '☀️' : '🌙';
+  $themeToggle.title = tema === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro';
+}
+function temaAtual(){
+  return document.documentElement.getAttribute('data-theme') || 'light';
+}
+aplicarTema(temaAtual()); // sincroniza o ícone com o tema já aplicado no <head>
+
+$themeToggle.onclick = () => {
+  const novo = temaAtual() === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, novo);
+  aplicarTema(novo);
+};
+
+// acompanha a preferência do sistema enquanto o usuário não escolher manualmente
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  if(!localStorage.getItem(THEME_KEY)) aplicarTema(e.matches ? 'dark' : 'light');
+});
 
 /* ============ Init ============ */
 buildGridSkeleton();

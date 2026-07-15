@@ -155,8 +155,11 @@
   .block .label .prof{ font-weight:500; opacity:0.9; font-size:0.82em; font-style:italic; }
   .block .label .obs{ font-weight:400; opacity:0.82; font-size:0.78em; }
   .block.split .label{ padding:3px 5px; font-size:0.66rem; }
-  .block .label.top-tri{ position:absolute; top:2px; left:5px; right:5px; }
-  .block .label.bottom-tri{ position:absolute; bottom:2px; right:5px; left:5px; text-align:right; }
+  .block .label.top-tri, .block .label.bottom-tri{
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .block .label.top-tri{ position:absolute; top:2px; left:5px; right:14px; }
+  .block .label.bottom-tri{ position:absolute; bottom:2px; right:5px; left:14px; text-align:right; }
 
   /* ---- Painel ---- */
   .panel{
@@ -563,18 +566,19 @@ function renderBlocks(){
           `<br><small>${item.inicio}–${item.fim}</small></div>`;
       } else if(occ.length === 2){
         block.classList.add('split');
-        const [a,b] = occ;
+        // quem começa mais em cima fica no triângulo superior; quem desce mais, no inferior
+        const [a,b] = [...occ].sort((x,y) => x.rowStart - y.rowStart || x.rowEnd - y.rowEnd);
         block.innerHTML =
           `<div class="fill" style="background:${a.cor};clip-path:polygon(0 0,100% 0,0 100%)"></div>` +
           `<div class="fill" style="background:${b.cor};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>` +
-          `<div class="label top-tri">${escapeHtml(a.nome)}${profLine(a)}${obsLine(a)}</div>` +
-          `<div class="label bottom-tri">${escapeHtml(b.nome)}${profLine(b)}${obsLine(b)}</div>`;
+          `<div class="label top-tri">${escapeHtml(a.nome)}</div>` +
+          `<div class="label bottom-tri">${escapeHtml(b.nome)}</div>`;
       } else {
         block.classList.add('split');
         block.style.display = 'flex';
         block.innerHTML = occ.map(g =>
           `<div style="flex:1;position:relative;background:${g.cor};overflow:hidden">` +
-          `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}${profLine(g)}${obsLine(g)}</div></div>`
+          `<div class="label" style="font-size:0.6rem;padding:2px 3px">${escapeHtml(g.nome)}</div></div>`
         ).join('');
       }
 
